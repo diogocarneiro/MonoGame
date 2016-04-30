@@ -5,9 +5,8 @@ using Gtk;
 
 namespace MonoGame.Tools.Pipeline
 {
-    public class Gtk3Wrapper
+    public partial class Gtk3Wrapper
     {
-        public const string gtklibpath = "libgtk-3.so.0";
         public const string giolibpath = "libgio-2.0.so.0";
 
         [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
@@ -20,9 +19,6 @@ namespace MonoGame.Tools.Pipeline
         public static extern void gtk_color_chooser_set_rgba (IntPtr chooser, double[] color);
 
         [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
-        public static extern IntPtr gtk_header_bar_new ();
-
-        [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
         public static extern void gtk_header_bar_set_subtitle (IntPtr handle, string text);
 
         [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
@@ -33,9 +29,6 @@ namespace MonoGame.Tools.Pipeline
 
         [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
         public static extern bool gtk_header_bar_get_show_close_button (IntPtr handle);
-
-        [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void gtk_window_set_titlebar (IntPtr window, IntPtr widget);
 
         [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
         public static extern int gtk_get_major_version ();
@@ -54,6 +47,33 @@ namespace MonoGame.Tools.Pipeline
 
         [DllImport (giolibpath, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr g_file_query_info (IntPtr gfile, string attributes, int flag, IntPtr cancelable, IntPtr error);
+
+        [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr gtk_popover_new (IntPtr relative_to_widget);
+
+        [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr gtk_popover_menu_new ();
+
+        [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr gtk_menu_button_new ();
+
+        [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr gtk_menu_button_get_popover (IntPtr menu_button);
+
+        [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void gtk_menu_button_set_popover (IntPtr menu_button, IntPtr popover);
+
+        [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void gtk_tree_view_set_activate_on_single_click (IntPtr treeview, bool value);
+
+        [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr gtk_app_chooser_dialog_new (IntPtr parrent, int flags, IntPtr file);
+
+        [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void gtk_application_set_app_menu (IntPtr application, IntPtr app_menu);
+
+        [DllImport (gtklibpath, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr gtk_application_get_app_menu (IntPtr application);
     }
 
     public class ColorChooserDialog : Dialog
@@ -119,6 +139,54 @@ namespace MonoGame.Tools.Pipeline
         {
             Gtk3Wrapper.gtk_window_set_titlebar(window.Handle, this.Handle);
         }
+    }
+
+    public class Popover : Bin
+    {
+        public Popover(Widget relativeWidget) : base(Gtk3Wrapper.gtk_popover_new(relativeWidget.Handle)) { }
+
+        public Popover(IntPtr handle) : base(handle) { }
+    }
+
+    public class PopoverMenu : Popover
+    {
+        public PopoverMenu() : base(Gtk3Wrapper.gtk_popover_menu_new()) { }
+
+        public PopoverMenu(IntPtr handle) : base(handle) { }
+    }
+
+    public class ModalButton : Button
+    {
+        [Property("active")]
+        public bool Active 
+        {
+            set
+            {
+                this.SetProperty("active", new Value(value));
+            }
+        }
+
+        public ModalButton(IntPtr handle) : base(handle) { }
+    }
+
+    public class MenuButton : ToggleButton
+    {
+        public Popover Popover
+        {
+            get
+            {
+                var ret = Gtk3Wrapper.gtk_menu_button_get_popover(this.Handle);
+                return new Popover(ret);
+            }
+            set
+            {
+                Gtk3Wrapper.gtk_menu_button_set_popover(this.Handle, value.Handle);
+            }
+        }
+
+        public MenuButton() : base(Gtk3Wrapper.gtk_menu_button_new()) { }
+
+        public MenuButton(IntPtr handle) : base(handle) { }
     }
 }
 

@@ -7,8 +7,13 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
 #if MONOMAC
+#if PLATFORM_MACOS_LEGACY
 using MonoMac.AppKit;
 using MonoMac.Foundation;
+#else
+using AppKit;
+using Foundation;
+#endif
 #elif IOS
 using UIKit;
 #elif ANDROID
@@ -72,29 +77,36 @@ namespace Microsoft.Xna.Framework.Graphics
             {
 #if MONOMAC
                 //Dummy values until MonoMac implements Quartz Display Services
-                int refreshRate = 60;
                 SurfaceFormat format = SurfaceFormat.Color;
                 
                 return new DisplayMode((int)_screen.Frame.Width,
                                        (int)_screen.Frame.Height,
-                                       refreshRate,
                                        format);
 #elif IOS
                 return new DisplayMode((int)(_screen.Bounds.Width * _screen.Scale),
                        (int)(_screen.Bounds.Height * _screen.Scale),
-                       60,
                        SurfaceFormat.Color);
 #elif ANDROID
                 View view = ((AndroidGameWindow)Game.Instance.Window).GameView;
-                return new DisplayMode(view.Width, view.Height, 60, SurfaceFormat.Color);
+                return new DisplayMode(view.Width, view.Height, SurfaceFormat.Color);
 #elif DESKTOPGL
+                var displayIndex = Sdl.Display.GetWindowDisplayIndex(SdlGameWindow.Instance.Handle);
 
-                return new DisplayMode(OpenTK.DisplayDevice.Default.Width, OpenTK.DisplayDevice.Default.Height, (int)OpenTK.DisplayDevice.Default.RefreshRate, SurfaceFormat.Color);
+                Sdl.Display.Mode mode;
+                Sdl.Display.GetCurrentDisplayMode(displayIndex, out mode);
+
+                return new DisplayMode(mode.Width, mode.Height, SurfaceFormat.Color);
 #elif WINDOWS
-                var dc = System.Drawing.Graphics.FromHwnd(IntPtr.Zero).GetHdc();
-                return new DisplayMode(GetDeviceCaps(dc, HORZRES), GetDeviceCaps(dc, VERTRES), GetDeviceCaps(dc, VREFRESH), SurfaceFormat.Color);
+                using (var graphics = System.Drawing.Graphics.FromHwnd(IntPtr.Zero))
+                {
+                    var dc = graphics.GetHdc();
+                    int width = GetDeviceCaps(dc, HORZRES);
+                    int height = GetDeviceCaps(dc, VERTRES);
+                    graphics.ReleaseHdc(dc);
+                    return new DisplayMode(width, height, SurfaceFormat.Color);
+                }
 #else
-                return new DisplayMode(800, 600, 60, SurfaceFormat.Color);
+                return new DisplayMode(800, 600, SurfaceFormat.Color);
 #endif
             }
         }
@@ -274,49 +286,23 @@ namespace Microsoft.Xna.Framework.Graphics
                     var modes = new List<DisplayMode>(new[] { CurrentDisplayMode, });
 
 #if DESKTOPGL
+                    var displayCount = Sdl.Display.GetNumVideoDisplays();
+                    modes.Clear();
                     
-					//IList<OpenTK.DisplayDevice> displays = OpenTK.DisplayDevice.AvailableDisplays;
-					var displays = new List<OpenTK.DisplayDevice>();
-
-					OpenTK.DisplayIndex[] displayIndices = {
-						OpenTK.DisplayIndex.First,
-						OpenTK.DisplayIndex.Second,
-						OpenTK.DisplayIndex.Third,
-						OpenTK.DisplayIndex.Fourth,
-						OpenTK.DisplayIndex.Fifth,
-						OpenTK.DisplayIndex.Sixth,
-					};
-
-					foreach(var displayIndex in displayIndices) 
-					{
-						var currentDisplay = OpenTK.DisplayDevice.GetDisplay(displayIndex);
-						if(currentDisplay!= null) displays.Add(currentDisplay);
-					}
-
-                    if (displays.Count > 0)
+                    for (int displayIndex = 0; displayIndex < displayCount;displayIndex++)
                     {
-                        modes.Clear();
-                        foreach (OpenTK.DisplayDevice display in displays)
-                        {
-                            foreach (OpenTK.DisplayResolution resolution in display.AvailableResolutions)
-                            {                                
-                                SurfaceFormat format = SurfaceFormat.Color;
-                                switch (resolution.BitsPerPixel)
-                                {
-                                    case 32: format = SurfaceFormat.Color; break;
-                                    case 16: format = SurfaceFormat.Bgr565; break;
-                                    case 8: format = SurfaceFormat.Bgr565; break;
-                                    default:
-                                        break;
-                                }
-                                // Just report the 32 bit surfaces for now
-                                // Need to decide what to do about other surface formats
-                                if (format == SurfaceFormat.Color)
-                                {
-                                    modes.Add(new DisplayMode(resolution.Width, resolution.Height, (int)resolution.RefreshRate, format));
-                                }
-                            }
+                        var modeCount = Sdl.Display.GetNumDisplayModes(displayIndex);
 
+                        for (int i = 0;i < modeCount;i++)
+                        {
+                            Sdl.Display.Mode mode;
+                            Sdl.Display.GetDisplayMode(displayIndex, i, out mode);
+
+                            // We are only using one format, Color
+                            // mode.Format gets the Color format from SDL
+                            var displayMode = new DisplayMode(mode.Width, mode.Height, SurfaceFormat.Color);
+                            if (!modes.Contains(displayMode))
+                                modes.Add(displayMode);
                         }
                     }
 #elif DIRECTX && !WINDOWS_PHONE
@@ -330,8 +316,7 @@ namespace Microsoft.Xna.Framework.Graphics
                         var displayModes = output.GetDisplayModeList(formatTranslation.Key, 0);
                         foreach (var displayMode in displayModes)
                         {
-                            int refreshRate = (int)Math.Round(displayMode.RefreshRate.Numerator / (float)displayMode.RefreshRate.Denominator);
-                            var xnaDisplayMode = new DisplayMode(displayMode.Width, displayMode.Height, refreshRate, formatTranslation.Value);
+                            var xnaDisplayMode = new DisplayMode(displayMode.Width, displayMode.Height, formatTranslation.Value);
                             if (!modes.Contains(xnaDisplayMode))
                                 modes.Add(xnaDisplayMode);
                         }
@@ -383,7 +368,6 @@ namespace Microsoft.Xna.Framework.Graphics
 
         private const int HORZRES = 8;
         private const int VERTRES = 10;
-        private const int VREFRESH = 116;
 #endif
     }
 }
